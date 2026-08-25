@@ -34,9 +34,15 @@ services:
 
   web:
     build: .
+    # --proxy-headers makes uvicorn trust X-Forwarded-For/-Proto from the
+    # reverse proxy, so the access log shows the real client IP rather than the
+    # proxy's and the app knows the request arrived over https. Without it every
+    # line reads as coming from the proxy, which makes "is anything reaching the
+    # container at all?" much harder to answer.
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --proxy-headers --forwarded-allow-ips='*'"
     environment: &appenv
       # Guarded here too, not just on `db`. Left unguarded, an unset password
       # interpolated to a blank string and the app failed later with an
