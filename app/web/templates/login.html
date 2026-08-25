@@ -1,16 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Вход — million_cards{% endblock %}
-{% block content %}
-<div class="login-wrap">
-  <form class="card login" method="post" action="/login">
-    <h1>million_cards</h1>
-    <p class="muted">Управление карточками маркетплейса</p>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <label>Email
-      <input type="email" name="email" required autofocus autocomplete="username">
+{% block title %}Вход — MillionCards{% endblock %}
+
+{% block gate %}
+<div class="gate">
+  <form method="post" action="/login">
+    <span class="wordmark">MillionCards</span>
+    <p class="lede">Управление карточками маркетплейса</p>
+
+    {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+
+    <label for="email">Email
+      <input id="email" type="email" name="email" required autofocus autocomplete="username">
     </label>
-    <label>Пароль
-      <input type="password" name="password" required autocomplete="current-password">
+    <label for="password">Пароль
+      <input id="password" type="password" name="password" required autocomplete="current-password">
     </label>
     <button type="submit" class="primary">Войти</button>
   </form>

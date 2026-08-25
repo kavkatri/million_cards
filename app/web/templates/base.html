@@ -3,28 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}million_cards{% endblock %}</title>
+  <title>{% block title %}MillionCards{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  {% if request.state.user_email is defined %}
-  <header class="topbar">
-    <a class="brand" href="/">million_cards</a>
-    <nav>
-      <a href="/">Обзор</a>
-      <a href="/lines">Новая линейка</a>
-      <a href="/templates/editor">Шаблоны изображений</a>
+{% if request.state.user_email is defined %}
+<div class="shell">
+  <aside class="rail">
+    <a class="wordmark" href="/">MillionCards</a>
+    <nav aria-label="Разделы">
+      <a href="/" {% if page == 'dashboard' %}aria-current="page"{% endif %}>Обзор</a>
+      <a href="/lines" {% if page == 'line' %}aria-current="page"{% endif %}>Линейки</a>
+      <a href="/templates/editor" {% if page == 'template' %}aria-current="page"{% endif %}>Шаблоны</a>
+      <a href="/accounts" {% if page == 'accounts' %}aria-current="page"{% endif %}>Аккаунты</a>
     </nav>
-    <form method="post" action="/logout" class="right">
+    <div class="rail-foot">
+      <span class="small">
+        <span class="live-dot" id="live-dot" data-live="false" aria-hidden="true"></span>
+        <span id="live-label">подключение…</span>
+      </span>
       <span class="muted">{{ request.state.user_email }}</span>
-      <button class="link" type="submit">Выйти</button>
-    </form>
-  </header>
-  {% endif %}
-  <main>
+      <form method="post" action="/logout">
+        <button type="submit" class="quiet" style="padding-inline:0">Выйти</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="workspace">
     {% block content %}{% endblock %}
   </main>
-  <script src="/static/app.js"></script>
-  {% block scripts %}{% endblock %}
+</div>
+{% else %}
+  {% block gate %}{% endblock %}
+{% endif %}
+
+<script src="/static/app.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

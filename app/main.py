@@ -6,7 +6,7 @@ from pathlib import Path
 
 import structlog
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from redis.asyncio import Redis
@@ -25,6 +25,7 @@ from app.core.security import (
 )
 from app.db.models import Account, ProductLine, Run, Sku, User
 from app.db.session import SessionLocal, get_session
+from app.events import stream
 
 log = structlog.get_logger(__name__)
 settings = get_settings()
@@ -82,6 +83,34 @@ app.include_router(api_router)
 @app.get("/healthz")
 async def healthz():
     return {"ok": True}
+
+
+@app.get("/events/stream")
+async def events_stream(request: Request):
+    """Server-Sent Events: one frame per completed task.
+
+    The dashboard uses these to pulse the element that changed the moment it
+    changes. One-way traffic, so SSE rather than a WebSocket -- and SSE
+    reconnects on its own when a laptop wakes up.
+    """
+
+    async def frames():
+        async for frame in stream(request.app.state.redis):
+            if await request.is_disconnected():
+                break
+            yield frame
+
+    return StreamingResponse(
+        frames(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # nginx buffers by default, which would hold every frame back until
+            # the buffer filled and make the stream look dead.
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -178,3 +207,25 @@ async def new_line(request: Request):
 @app.get("/templates/editor", response_class=HTMLResponse)
 async def template_editor(request: Request):
     return templates.TemplateResponse(request, "template_editor.html", {})
+
+
+@app.get("/accounts", response_class=HTMLResponse)
+async def accounts_page(request: Request, session: AsyncSession = Depends(get_session)):
+    """Stored marketplace credentials.
+
+    Tokens are encrypted at rest and never rendered back. The page shows a
+    fingerprint so you can tell which token is stored without ever displaying
+    one -- a token on screen is a token in a screenshot.
+    """
+    rows = (await session.execute(select(Account).order_by(Account.id))).scalars().all()
+    counts = {
+        a.id: (
+            await session.execute(
+                select(func.count(ProductLine.id)).where(ProductLine.account_id == a.id)
+            )
+        ).scalar_one()
+        for a in rows
+    }
+    return templates.TemplateResponse(
+        request, "accounts.html", {"accounts": rows, "line_counts": counts}
+    )

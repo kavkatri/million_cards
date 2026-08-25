@@ -1,0 +1,16 @@
+[
+  {
+    "date": "2026-08-26",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "custom",
+    "theme_axes": "light / roman-serif / warm",
+    "vibe": "soft peach workspace, calm, warm, unhurried",
+    "genre": "modern-minimal",
+    "nav": "N3 side-rail",
+    "footer": "none",
+    "enrichment": "none",
+    "design_system": "design.md",
+    "brief": "MillionCards · marketplace catalogue automation workspace"
+  }
+]

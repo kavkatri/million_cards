@@ -21,7 +21,7 @@ function axisRow(axis = {}) {
     <label class="ax-range">До <input type="number" class="ax-stop" value="${axis.stop ?? 120}"></label>
     <label class="ax-range">Шаг <input type="number" class="ax-step" value="${axis.step ?? 1}"></label>
     <label class="ax-list" hidden>Значения <input class="ax-values" value="${(axis.values ?? []).join(", ")}"></label>
-    <button type="button" class="secondary ax-del">✕</button>`;
+    <button type="button" class="ax-del">✕</button>`;
   row.querySelector(".ax-type").value = axis.type ?? "range";
   toggleAxisType(row);
   row.querySelector(".ax-type").addEventListener("change", () => { toggleAxisType(row); refresh(); });
@@ -90,12 +90,12 @@ const refresh = debounce(async () => {
       method: "POST",
       body: JSON.stringify({ grid_spec, vendor_code_template }),
     });
-    gridPreview.classList.remove("bad");
+    gridPreview.removeAttribute("data-state");
     gridPreview.textContent =
       `${r.cells.toLocaleString("ru")} карточек · оси: ${r.axes.join(", ")}\n` +
       `пример артикула: ${r.sample_vendor_code}`;
   } catch (err) {
-    gridPreview.classList.add("bad");
+    gridPreview.setAttribute("data-state", "bad");
     gridPreview.textContent = err.message;
   }
 
@@ -104,12 +104,12 @@ const refresh = debounce(async () => {
       method: "POST",
       body: JSON.stringify({ price_rule: readPriceRule(), axes: sampleAxes() }),
     });
-    pricePreview.classList.remove("bad");
+    pricePreview.removeAttribute("data-state");
     const s = sampleAxes();
     pricePreview.textContent =
       `для ${JSON.stringify(s)} → ${r.price} ₽` + (r.discount ? ` (скидка ${r.discount}%)` : "");
   } catch (err) {
-    pricePreview.classList.add("bad");
+    pricePreview.setAttribute("data-state", "bad");
     pricePreview.textContent = err.message;
   }
 }, 300);

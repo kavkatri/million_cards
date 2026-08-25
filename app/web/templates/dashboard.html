@@ -1,75 +1,118 @@
 {% extends "base.html" %}
-{% block title %}Обзор — million_cards{% endblock %}
+{% set page = 'dashboard' %}
+{% block title %}Обзор — MillionCards{% endblock %}
+
 {% block content %}
-<h1>Линейки товаров</h1>
+<header>
+  <h1>Обзор</h1>
+  <p class="muted">Состояние каталога по каждой линейке. Обновляется по мере работы.</p>
+</header>
 
 {% if not cards %}
-  <div class="card empty">
-    <p>Пока нет ни одной линейки.</p>
-    <a class="primary button" href="/lines">Создать линейку</a>
-  </div>
+  <section class="panel empty reveal" style="--i: 0">
+    <h2>Пока ни одной линейки</h2>
+    <p>Линейка — это сетка размеров плюс правила: артикул, изображения, цена, остаток.</p>
+    <a class="button primary" href="/lines">Создать линейку</a>
+  </section>
 {% endif %}
 
-<div class="grid">
+<div class="lines">
 {% for c in cards %}
-  <section class="card line-card">
-    <header>
+  <section class="panel line-card reveal" data-line="{{ c.line.id }}" style="--i: {{ loop.index0 }}">
+    <div class="panel-head">
       <h2><a href="/lines/{{ c.line.id }}">{{ c.line.name }}</a></h2>
-      <span class="badge {{ 'on' if c.line.enabled else 'off' }}">
-        {{ 'включена' if c.line.enabled else 'выключена' }}
+      <span class="badge" data-tone="{{ 'ok' if c.line.enabled else 'warn' }}">
+        <span class="dot" aria-hidden="true"></span>{{ 'активна' if c.line.enabled else 'выключена' }}
       </span>
-    </header>
-    <p class="muted">
+    </div>
+
+    <p class="small muted">
       {{ c.account.name if c.account else '—' }}
-      {% if c.account and c.account.sandbox %}<span class="badge sandbox">песочница</span>{% endif %}
-      {% if c.line.schedule_cron %}· <code>{{ c.line.schedule_cron }}</code>{% endif %}
+      {%- if c.account and c.account.sandbox %} · <span class="badge">песочница</span>{% endif %}
+      {%- if c.line.schedule_cron %} · <code>{{ c.line.schedule_cron }}</code>{% endif %}
     </p>
 
     <div class="meter">
       <div class="meter-label">
         <span>Карточки</span>
-        <span>{{ c.created }} / {{ c.total }}</span>
+        <span class="meter-value">
+          <span data-count="cards">{{ c.created }}</span> / <span class="num">{{ c.total }}</span>
+          <span class="spark" data-spark="cards" aria-hidden="true"></span>
+        </span>
       </div>
-      <div class="bar"><div class="fill" style="width: {{ (100 * c.created / c.total) if c.total else 0 }}%"></div></div>
+      <div class="track">
+        <div class="fill" data-fill="cards"
+             data-complete="{{ 'true' if c.total and c.created >= c.total else 'false' }}"
+             style="--p: {{ (c.created / c.total) if c.total else 0 }}"></div>
+      </div>
     </div>
 
     {% if c.photos_target %}
     <div class="meter">
       <div class="meter-label">
         <span>Фотографии</span>
-        <span>{{ c.photos }} / {{ c.photos_target }}</span>
+        <span class="meter-value">
+          <span data-count="photos">{{ c.photos }}</span> / <span class="num">{{ c.photos_target }}</span>
+          <span class="spark" data-spark="photos" aria-hidden="true"></span>
+        </span>
       </div>
-      <div class="bar"><div class="fill alt" style="width: {{ (100 * c.photos / c.photos_target) if c.photos_target else 0 }}%"></div></div>
+      <div class="track">
+        <div class="fill" data-fill="photos"
+             data-complete="{{ 'true' if c.photos >= c.photos_target else 'false' }}"
+             style="--p: {{ (c.photos / c.photos_target) if c.photos_target else 0 }}"></div>
+      </div>
     </div>
     {% endif %}
 
-    <footer class="actions">
-      <button class="secondary" data-run="{{ c.line.id }}" data-dry="1">Предпросмотр</button>
+    <div class="actions">
+      <button data-run="{{ c.line.id }}" data-dry="1">Предпросмотр</button>
       <button class="primary" data-run="{{ c.line.id }}">Запустить</button>
-    </footer>
-    <pre class="plan" id="plan-{{ c.line.id }}" hidden></pre>
+    </div>
+    <pre class="readout" id="plan-{{ c.line.id }}" hidden></pre>
   </section>
 {% endfor %}
 </div>
 
-<h2>Последние запуски</h2>
-<table class="runs">
-  <thead>
-    <tr><th>#</th><th>Линейка</th><th>Статус</th><th>Начат</th><th>Итог</th></tr>
-  </thead>
-  <tbody>
-  {% for r in runs %}
-    <tr>
-      <td>{{ r.id }}</td>
-      <td>{{ r.line_id }}</td>
-      <td><span class="state {{ r.state.value }}">{{ r.state.value }}</span>
-          {% if r.dry_run %}<span class="badge">предпросмотр</span>{% endif %}</td>
-      <td class="muted">{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else '—' }}</td>
-      <td class="muted">{{ r.message or '' }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="5" class="muted">Запусков ещё не было.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<section class="panel reveal" style="--i: {{ cards|length }}; margin-top: var(--space-md)">
+  <div class="panel-head">
+    <h2>Что происходит сейчас</h2>
+    <span class="small muted" id="feed-rate"></span>
+  </div>
+  <ul class="feed" id="feed" aria-live="polite" aria-relevant="additions">
+  </ul>
+  <p class="feed-empty" id="feed-empty">
+    Тихо. События появятся здесь, как только начнётся работа.
+  </p>
+</section>
+
+<section class="panel reveal" style="--i: {{ cards|length + 1 }}; margin-top: var(--space-md)">
+  <h2>Последние запуски</h2>
+  <div class="scroll-x">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Линейка</th><th>Статус</th><th>Начат</th><th>Итог</th></tr>
+      </thead>
+      <tbody>
+      {% for r in runs %}
+        <tr>
+          <td class="num">{{ r.id }}</td>
+          <td class="num">{{ r.line_id }}</td>
+          <td>
+            <span class="badge" data-tone="{{ {'done':'ok','failed':'danger','running':'accent','planning':'accent'}.get(r.state.value, '') }}">
+              <span class="dot" aria-hidden="true"></span>{{ r.state.value }}
+            </span>
+            {% if r.dry_run %}<span class="badge">предпросмотр</span>{% endif %}
+          </td>
+          <td class="num muted">{{ r.started_at.strftime('%d.%m %H:%M') if r.started_at else '—' }}</td>
+          <td class="small muted">{{ r.message or '' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Запусков ещё не было.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}
+
+{% block scripts %}<script src="/static/dashboard.js"></script>{% endblock %}

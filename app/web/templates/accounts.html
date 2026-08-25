@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% set page = 'accounts' %}
+{% block title %}Аккаунты — MillionCards{% endblock %}
+
+{% block content %}
+<header>
+  <h1>Аккаунты</h1>
+  <p class="muted">
+    Ключи хранятся зашифрованными и никогда не показываются обратно —
+    виден только отпечаток, чтобы отличить один ключ от другого.
+  </p>
+</header>
+
+<section class="panel reveal" style="--i: 0">
+  <h2>Сохранённые аккаунты</h2>
+  {% if accounts %}
+  <div class="scroll-x">
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th><th>Продавец</th><th>Отпечаток</th>
+          <th>Тариф</th><th>Линеек</th><th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in accounts %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td class="num muted">{{ a.external_id or '—' }}</td>
+          <td class="num muted">{{ a.token_fingerprint }}</td>
+          <td>
+            <span class="badge">{{ a.tier.value }}</span>
+            {% if a.sandbox %}<span class="badge" data-tone="warn">песочница</span>{% endif %}
+          </td>
+          <td class="num">{{ line_counts.get(a.id, 0) }}</td>
+          <td>
+            <span class="badge" data-tone="{{ 'ok' if a.enabled else 'warn' }}">
+              <span class="dot" aria-hidden="true"></span>{{ 'активен' if a.enabled else 'выключен' }}
+            </span>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="muted small">Ни одного аккаунта пока не добавлено.</p>
+  {% endif %}
+</section>
+
+<section class="panel reveal" style="--i: 1; margin-top: var(--space-md)">
+  <h2>Добавить аккаунт</h2>
+  <p class="small muted" style="margin-bottom: var(--space-sm)">
+    Начните с песочницы. Ошибка в определении сетки на боевом аккаунте — это
+    тысячи созданных карточек.
+  </p>
+
+  <form id="account-form">
+    <div class="row">
+      <label for="acct-name">Название
+        <input id="acct-name" name="name" required placeholder="Плёнка 0,3">
+      </label>
+      <label for="acct-tier">Тариф ключа
+        <select id="acct-tier" name="tier">
+          <option value="personal">Персональный</option>
+          <option value="service">Сервисный</option>
+          <option value="basic_secret">Базовый с секретом</option>
+          <option value="basic">Базовый</option>
+        </select>
+        <small>Определяет, какие лимиты запросов применяются.</small>
+      </label>
+    </div>
+
+    <label for="acct-token">API-ключ
+      <input id="acct-token" name="token" type="password" required autocomplete="off"
+             spellcheck="false" class="mono" placeholder="eyJhbGciOi…">
+      <small>Сохраняется зашифрованным. После сохранения показать его снова нельзя.</small>
+    </label>
+
+    <label class="inline">
+      <input type="checkbox" id="acct-sandbox" checked> Песочница
+    </label>
+
+    <div class="actions">
+      <button type="submit" class="primary">Сохранить аккаунт</button>
+      <span id="acct-status" class="small muted" role="status"></span>
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="/static/accounts.js"></script>{% endblock %}

@@ -18,7 +18,7 @@ function layerRow(layer = {}) {
     <label>X <input type="number" step="0.01" min="0" max="1" class="l-x" value="${layer.x ?? 0.5}"></label>
     <label>Y <input type="number" step="0.01" min="0" max="1" class="l-y" value="${layer.y ?? 0.11}"></label>
     <label>Шрифт <input class="l-font" value="${layer.font ?? ""}" placeholder="путь к .ttf"></label>
-    <button type="button" class="secondary l-del">✕</button>`;
+    <button type="button" class="l-del">✕</button>`;
   row.querySelector(".l-del").addEventListener("click", () => { row.remove(); refresh(); });
   row.addEventListener("input", refresh);
   return row;

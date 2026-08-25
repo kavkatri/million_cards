@@ -1,80 +1,94 @@
 {% extends "base.html" %}
-{% block title %}{{ line.name if line else 'Новая линейка' }} — million_cards{% endblock %}
+{% set page = 'line' %}
+{% block title %}{{ line.name if line else 'Новая линейка' }} — MillionCards{% endblock %}
+
 {% block content %}
-<h1>{{ line.name if line else 'Новая линейка' }}</h1>
+<header>
+  <h1>{{ line.name if line else 'Новая линейка' }}</h1>
+  <p class="muted">Определение линейки. Ничего не записывается в маркетплейс, пока вы не запустите её.</p>
+</header>
 
-<form id="line-form" class="editor" data-line-id="{{ line.id if line else '' }}">
-  <section class="card">
+<form id="line-form" class="stack" data-line-id="{{ line.id if line else '' }}">
+
+  <section class="panel reveal" style="--i: 0">
     <h2>Основное</h2>
-    <label>Название
-      <input name="name" required value="{{ line.name if line else '' }}">
-    </label>
-    <label>Аккаунт
-      <select name="account_id" id="account-select" required></select>
-    </label>
-    <label>Расписание (cron, UTC)
-      <input name="schedule_cron" placeholder="0 3 * * *"
+    <div class="row">
+      <label for="ln-name">Название
+        <input id="ln-name" name="name" required value="{{ line.name if line else '' }}">
+      </label>
+      <label for="account-select">Аккаунт
+        <select id="account-select" name="account_id" required></select>
+      </label>
+    </div>
+    <label for="ln-cron">Расписание (cron, UTC)
+      <input id="ln-cron" class="mono" name="schedule_cron" placeholder="0 3 * * *"
              value="{{ line.schedule_cron or '' if line else '' }}">
-      <small class="muted">Пусто — только ручной запуск. Если предыдущий запуск ещё идёт,
-        новый пропускается, а не добавляется поверх.</small>
+      <small>Пусто — только ручной запуск. Если предыдущий запуск ещё идёт, новый пропускается, а не добавляется поверх.</small>
     </label>
   </section>
 
-  <section class="card">
+  <section class="panel reveal" style="--i: 1">
     <h2>Сетка размеров</h2>
-    <p class="muted">Границы включительные: «10 … 120» — это 111 значений.</p>
+    <p class="small muted">Границы включительные: «10 … 120» — это 111 значений.</p>
     <div id="axes"></div>
-    <button type="button" class="secondary" id="add-axis">Добавить ось</button>
+    <div class="actions">
+      <button type="button" id="add-axis">Добавить ось</button>
+    </div>
 
-    <label>Шаблон артикула
-      <input name="vendor_code_template" id="vendor-template" required
+    <label for="vendor-template" style="margin-top: var(--space-md)">Шаблон артикула
+      <input id="vendor-template" class="mono" name="vendor_code_template" required
              value="{{ line.vendor_code_template if line else '{w} x {l} / прям / глян / 0,3' }}">
+      <small>Шаблон должен использовать все оси — иначе две ячейки получат один артикул.</small>
     </label>
 
-    <div class="preview" id="grid-preview">—</div>
+    <div class="readout" id="grid-preview" role="status">—</div>
   </section>
 
-  <section class="card">
+  <section class="panel reveal" style="--i: 2">
     <h2>Цена</h2>
-    <label>Формула
-      <input name="price_expr" id="price-expr"
+    <label for="price-expr">Формула
+      <input id="price-expr" class="mono"
              value="{{ line.price_rule.get('expr', 'w * l * ratio') if line else 'w * l * ratio' }}">
-      <small class="muted">Доступны оси сетки и переменные ниже. Разрешена только арифметика:
-        выражение разбирается, а не выполняется.</small>
+      <small>Доступны оси сетки и переменные ниже. Только арифметика: выражение разбирается, а не выполняется.</small>
     </label>
-    <label>Переменные (JSON)
-      <input name="price_vars" id="price-vars"
+    <label for="price-vars">Переменные (JSON)
+      <input id="price-vars" class="mono"
              value='{{ line.price_rule.get("vars", {}) | tojson if line else "{\"ratio\": 0.00010027}" }}'>
     </label>
     <div class="row">
-      <label>Мин. цена <input type="number" name="min_price" id="min-price"
-        value="{{ line.price_rule.get('min_price', '') if line else '' }}"></label>
-      <label>Округление <input type="number" name="round_to" id="round-to"
-        value="{{ line.price_rule.get('round_to', 1) if line else 1 }}"></label>
-      <label>Скидка % <input type="number" name="discount" id="discount"
-        value="{{ line.price_rule.get('discount', 0) if line else 0 }}"></label>
+      <label for="min-price">Мин. цена
+        <input id="min-price" type="number" value="{{ line.price_rule.get('min_price', '') if line else '' }}">
+      </label>
+      <label for="round-to">Округление
+        <input id="round-to" type="number" value="{{ line.price_rule.get('round_to', 1) if line else 1 }}">
+      </label>
+      <label for="discount">Скидка %
+        <input id="discount" type="number" min="0" max="99" value="{{ line.price_rule.get('discount', 0) if line else 0 }}">
+      </label>
     </div>
-    <div class="preview" id="price-preview">—</div>
+    <div class="readout" id="price-preview" role="status">—</div>
   </section>
 
-  <section class="card">
+  <section class="panel reveal" style="--i: 3">
     <h2>Карточка товара</h2>
-    <label>Шаблон (JSON: subjectID, brand, title, description, characteristics…)
-      <textarea name="card_template" id="card-template" rows="10">{{ line.card_template | tojson(indent=2) if line else '{\n  "subjectID": 231,\n  "brand": "",\n  "title": "{w} x {l}",\n  "description": ""\n}' }}</textarea>
-      <small class="muted">Значения осей подставляются: <code>{w}</code>, <code>{l}</code>.</small>
+    <label for="card-template">Шаблон (JSON)
+      <textarea id="card-template" rows="10">{{ line.card_template | tojson(indent=2) if line else '{\n  "subjectID": 231,\n  "brand": "",\n  "title": "{w} x {l}",\n  "description": ""\n}' }}</textarea>
+      <small>Значения осей подставляются: <code>{w}</code>, <code>{l}</code>.</small>
     </label>
   </section>
 
-  <section class="card">
+  <section class="panel reveal" style="--i: 4">
     <h2>Изображения и остатки</h2>
-    <label>Шаблон изображения
-      <select name="image_template_id" id="template-select"></select>
+    <label for="template-select">Шаблон изображения
+      <select id="template-select" name="image_template_id"></select>
     </label>
     <div class="row">
-      <label>Остаток <input type="number" name="stock_value" id="stock-value"
-        value="{{ line.stock_rule.get('value', 1000) if line else 1000 }}"></label>
-      <label>ID склада <input type="number" name="warehouse_id" id="warehouse-id"
-        value="{{ line.stock_rule.get('warehouse_id', '') if line else '' }}"></label>
+      <label for="stock-value">Остаток
+        <input id="stock-value" type="number" value="{{ line.stock_rule.get('value', 1000) if line else 1000 }}">
+      </label>
+      <label for="warehouse-id">ID склада
+        <input id="warehouse-id" type="number" value="{{ line.stock_rule.get('warehouse_id', '') if line else '' }}">
+      </label>
     </div>
     <fieldset>
       <legend>Активные этапы</legend>
@@ -86,9 +100,9 @@
     </fieldset>
   </section>
 
-  <div class="actions sticky">
-    <span id="save-status" class="muted"></span>
-    <button type="submit" class="primary">Сохранить</button>
+  <div class="panel actions reveal" style="--i: 5">
+    <button type="submit" class="primary">Сохранить линейку</button>
+    <span id="save-status" class="small muted" role="status"></span>
   </div>
 </form>
 {% endblock %}

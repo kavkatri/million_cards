@@ -20,3 +20,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# local design preview (not part of the app)
+.preview/

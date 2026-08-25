@@ -63,6 +63,32 @@ block one another. Each bucket enforces both documented constraints — the
 burst/interval token bucket *and* the limit/period sliding window — in one Lua
 script.
 
+## The interface
+
+A workspace, not a dashboard-shaped marketing page. Soft peach surface, Lora
+wordmark, a persistent left rail, and one deliberate piece of motion.
+
+**Progress is live.** Workers publish one event per completed task to Redis
+pub/sub; the web process relays them over Server-Sent Events. When a batch of
+cards is created or a card's photos finish uploading, the counter advances, the
+meter moves, and the panel that changed **pulses green** — once, in place. Not a
+toast in the corner: the confirmation happens on the thing that changed, so you
+can look away and still catch it in peripheral vision.
+
+Pages: **Обзор** (per-line progress + live feed) · **Линейки** (the no-code
+builder) · **Шаблоны** (image template editor with live preview) ·
+**Аккаунты** (credentials).
+
+The design system is locked in [`design.md`](design.md) — colours, type, motion,
+and the rules every page shares. Change it there, not per page.
+
+### Credentials
+
+API tokens are encrypted at rest with Fernet and **never rendered back**. The
+accounts page shows a 12-character fingerprint so you can tell which token is
+stored without ever putting one on screen. `TOKEN_ENCRYPTION_KEY` must be backed
+up alongside the database — lose it and every stored token becomes unreadable.
+
 ## Running it
 
 ```bash
@@ -76,6 +102,26 @@ Open `http://127.0.0.1:8080`. Scale workers with:
 
 ```bash
 docker compose up -d --scale worker=4
+```
+
+### Serving it over a link
+
+Compose binds the web port to `127.0.0.1` deliberately — this service holds
+credentials that can rewrite a whole storefront, so it should never face the
+internet directly. Put TLS in front of it. Two things the proxy must get right
+or the live progress will appear broken:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+location /events/stream {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_buffering off;        # otherwise frames are held until a buffer fills
+    proxy_read_timeout 3600s;   # the stream is long-lived by design
+}
 ```
 
 ### Start in the sandbox
@@ -138,7 +184,15 @@ is expensive: grid cardinality (pinned to the real 41 181), the price expression
 sandbox, rate-limit routing, photo-slot arithmetic, and adapter handling of
 marketplace responses that report failure inside a `200`.
 
+## What's next
+
+[`docs/plan-variation-factory.md`](docs/plan-variation-factory.md) — proposed,
+not built. Turning one real product into twenty styled listings, each with its
+own generated name, description, and images, aimed at a different buyer. The
+key structural claim there: it is a content-generation stage in front of this
+reconciler, not a second system.
+
 ## Status
 
-See `DECISIONS.md` for what is implemented, the assumptions made where questions
-were still open, and what remains.
+See [`DECISIONS.md`](DECISIONS.md) for what is implemented, the assumptions made
+where questions were still open, and what remains.

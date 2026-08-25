@@ -7,6 +7,7 @@ rather than an assumption.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -35,6 +36,19 @@ class TaskFailure(Exception):
         self.retry_after_s = retry_after_s
 
 
+@dataclass(slots=True)
+class Outcome:
+    """What a task actually achieved, in units a person recognises.
+
+    The dashboard says "6 photos" rather than "1 task" because that is what
+    someone watching a catalogue fill up wants to know.
+    """
+
+    unit: str
+    count: int
+    label: str | None = None
+
+
 async def _line_for_task(session: AsyncSession, task: Task) -> ProductLine:
     run = await session.get(Run, task.run_id)
     if run is None:
@@ -45,18 +59,17 @@ async def _line_for_task(session: AsyncSession, task: Task) -> ProductLine:
     return line
 
 
-async def handle(session: AsyncSession, task: Task, adapter: MarketplaceAdapter) -> None:
+async def handle(session: AsyncSession, task: Task, adapter: MarketplaceAdapter) -> Outcome:
     line = await _line_for_task(session, task)
     if task.aspect is Aspect.CARD:
-        await _handle_card(session, task, line, adapter)
-    elif task.aspect is Aspect.MEDIA:
-        await _handle_media(session, task, line, adapter)
-    elif task.aspect is Aspect.PRICE:
-        await _handle_price(session, task, adapter)
-    elif task.aspect is Aspect.STOCK:
-        await _handle_stock(session, task, adapter)
-    else:  # pragma: no cover
-        raise TaskFailure(f"unknown aspect {task.aspect}")
+        return await _handle_card(session, task, line, adapter)
+    if task.aspect is Aspect.MEDIA:
+        return await _handle_media(session, task, line, adapter)
+    if task.aspect is Aspect.PRICE:
+        return await _handle_price(session, task, adapter)
+    if task.aspect is Aspect.STOCK:
+        return await _handle_stock(session, task, adapter)
+    raise TaskFailure(f"unknown aspect {task.aspect}")  # pragma: no cover
 
 
 # --------------------------------------------------------------------- cards
@@ -64,11 +77,11 @@ async def handle(session: AsyncSession, task: Task, adapter: MarketplaceAdapter)
 
 async def _handle_card(
     session: AsyncSession, task: Task, line: ProductLine, adapter: MarketplaceAdapter
-) -> None:
+) -> Outcome:
     sku_ids = task.payload.get("sku_ids") or []
     skus = (await session.execute(select(Sku).where(Sku.id.in_(sku_ids)))).scalars().all()
     if not skus:
-        return
+        return Outcome("cards", 0)
 
     tpl = line.card_template or {}
     drafts = [
@@ -97,6 +110,7 @@ async def _handle_card(
     for s in skus:
         s.card_created_at = now
     await session.commit()
+    return Outcome("cards", len(skus))
 
 
 # --------------------------------------------------------------------- media
@@ -104,10 +118,10 @@ async def _handle_card(
 
 async def _handle_media(
     session: AsyncSession, task: Task, line: ProductLine, adapter: MarketplaceAdapter
-) -> None:
+) -> Outcome:
     sku = await session.get(Sku, task.sku_id)
     if sku is None or sku.nm_id is None:
-        return
+        return Outcome("photos", 0)
     template = line.image_template
     if template is None:
         raise TaskFailure("line has no image template")
@@ -116,7 +130,7 @@ async def _handle_media(
     have = sku.photo_count or 0
     slots = missing_slots(have, expected)
     if not slots:
-        return
+        return Outcome("photos", 0, sku.vendor_code)
 
     uploaded = 0
     for slot in slots:
@@ -152,6 +166,7 @@ async def _handle_media(
     sku.photo_count = have + uploaded
     sku.last_synced_at = datetime.now(UTC)
     await session.commit()
+    return Outcome("photos", uploaded, sku.vendor_code)
 
 
 # -------------------------------------------------------------------- prices
@@ -159,10 +174,10 @@ async def _handle_media(
 
 async def _handle_price(
     session: AsyncSession, task: Task, adapter: MarketplaceAdapter
-) -> None:
+) -> Outcome:
     items = task.payload.get("items") or []
     if not items:
-        return
+        return Outcome("prices", 0)
     sku_ids = [i["sku_id"] for i in items]
     skus = {
         s.id: s
@@ -180,7 +195,7 @@ async def _handle_price(
         applied.append((sku, item))
 
     if not updates:
-        return
+        return Outcome("prices", 0)
 
     result = await adapter.set_prices(updates)
     if result.failed:
@@ -192,6 +207,7 @@ async def _handle_price(
         sku.price_current = item["price"]
         sku.discount_current = item["discount"]
     await session.commit()
+    return Outcome("prices", len(applied))
 
 
 # -------------------------------------------------------------------- stocks
@@ -199,7 +215,7 @@ async def _handle_price(
 
 async def _handle_stock(
     session: AsyncSession, task: Task, adapter: MarketplaceAdapter
-) -> None:
+) -> Outcome:
     sku_ids = task.payload.get("sku_ids") or []
     amount = int(task.payload.get("amount", 0))
     warehouse_id = int(task.payload["warehouse_id"])
@@ -211,7 +227,7 @@ async def _handle_stock(
         if s.chrt_id is not None
     ]
     if not updates:
-        return
+        return Outcome("stocks", 0)
 
     result = await adapter.set_stocks(updates)
     if result.failed:
@@ -221,6 +237,7 @@ async def _handle_stock(
         if s.chrt_id is not None:
             s.stock_current = amount
     await session.commit()
+    return Outcome("stocks", len(updates))
 
 
 # ------------------------------------------------------------------- helpers

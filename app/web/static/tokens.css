@@ -1,0 +1,143 @@
+/* Hallmark · design-system: design.md · designed-as-app
+ * theme: custom (tuned) · vibe: "soft peach workspace, calm, warm, unhurried"
+ * paper: oklch(97.5% 0.016 55) · accent: oklch(54% 0.155 45)
+ * display: Lora · body: Plus Jakarta Sans · outlier: JetBrains Mono
+ * axes: light / roman-serif / warm · studied: no · context: explicit
+ */
+
+:root {
+  /* ---- surface ------------------------------------------------------- */
+  --color-paper:      oklch(97.5% 0.016 55);
+  --color-paper-2:    oklch(95%   0.020 52);
+  --color-paper-3:    oklch(92%   0.026 50);
+
+  /* ---- ink ----------------------------------------------------------- */
+  --color-ink:        oklch(24%   0.020 45);
+  --color-ink-2:      oklch(43%   0.018 45);
+  --color-muted:      oklch(58%   0.014 45);
+
+  /* ---- structure ----------------------------------------------------- */
+  --color-rule:       oklch(88%   0.016 50);
+  --color-rule-2:     oklch(92.5% 0.014 52);
+
+  /* ---- accent: one hue family with the paper ------------------------- */
+  --color-accent:     oklch(54%   0.155 45);
+  --color-accent-ink: oklch(98%   0.012 55);
+  --color-accent-sub: oklch(93%   0.045 48);
+  --color-focus:      oklch(58%   0.20  45);
+
+  /* ---- status: semantic only, never decorative ----------------------- */
+  --color-ok:         oklch(58%   0.155 150);
+  --color-ok-sub:     oklch(93%   0.055 150);
+  --color-ok-ink:     oklch(34%   0.10  150);
+  --color-warn:       oklch(68%   0.135 75);
+  --color-warn-sub:   oklch(94%   0.050 78);
+  --color-danger:     oklch(52%   0.19  22);
+  --color-danger-sub: oklch(94%   0.040 25);
+
+  /* ---- type ---------------------------------------------------------- */
+  --font-display: "Lora", ui-serif, Georgia, serif;
+  --font-body:    "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* perfect fourth (1.333) from 0.9375rem */
+  --text-2xs: 0.6875rem;
+  --text-xs:  0.79rem;
+  --text-sm:  0.875rem;
+  --text-md:  0.9375rem;
+  --text-lg:  1.25rem;
+  --text-xl:  1.666rem;
+  --text-2xl: 2.221rem;
+
+  --track-display: -0.011em;
+
+  /* ---- 4-point spacing ----------------------------------------------- */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs:  0.75rem;
+  --space-sm:  1rem;
+  --space-md:  1.5rem;
+  --space-lg:  2rem;
+  --space-xl:  3rem;
+  --space-2xl: 4.5rem;
+
+  /* ---- geometry ------------------------------------------------------ */
+  --radius-panel:   14px;
+  --radius-control: 9px;
+  --radius-pill:    999px;
+  --rule-hair:      1px;
+  --rail-width:     15rem;
+
+  /* ---- motion -------------------------------------------------------- */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long:  420ms;
+  --dur-pulse: 900ms;
+
+  /* ---- elevation: warm, never neutral grey --------------------------- */
+  --shadow-panel: 0 1px 2px oklch(40% 0.03 45 / 0.05),
+                  0 8px 24px oklch(40% 0.03 45 / 0.05);
+  --shadow-lift:  0 2px 4px oklch(40% 0.03 45 / 0.07),
+                  0 12px 32px oklch(40% 0.03 45 / 0.08);
+}
+
+/* Dark mode keeps the anchor hue and moves only lightness and chroma.
+   Elevation inverts: higher surfaces get lighter, never darker. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-paper:      oklch(16%   0.014 45);
+    --color-paper-2:    oklch(19.5% 0.016 45);
+    --color-paper-3:    oklch(24%   0.018 45);
+
+    --color-ink:        oklch(94%   0.010 55);
+    --color-ink-2:      oklch(74%   0.012 50);
+    --color-muted:      oklch(60%   0.012 48);
+
+    --color-rule:       oklch(30%   0.016 45);
+    --color-rule-2:     oklch(25%   0.014 45);
+
+    --color-accent:     oklch(70%   0.135 48);
+    --color-accent-ink: oklch(18%   0.020 45);
+    --color-accent-sub: oklch(30%   0.045 48);
+    --color-focus:      oklch(74%   0.17  48);
+
+    --color-ok:         oklch(72%   0.145 150);
+    --color-ok-sub:     oklch(28%   0.055 150);
+    --color-ok-ink:     oklch(84%   0.10  150);
+    --color-warn:       oklch(76%   0.12  78);
+    --color-warn-sub:   oklch(30%   0.05  78);
+    --color-danger:     oklch(66%   0.16  25);
+    --color-danger-sub: oklch(28%   0.045 25);
+
+    --shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.24);
+    --shadow-lift:  0 2px 4px oklch(0% 0 0 / 0.34), 0 12px 32px oklch(0% 0 0 / 0.3);
+  }
+}
+
+[data-theme="dark"] {
+  --color-paper:      oklch(16%   0.014 45);
+  --color-paper-2:    oklch(19.5% 0.016 45);
+  --color-paper-3:    oklch(24%   0.018 45);
+  --color-ink:        oklch(94%   0.010 55);
+  --color-ink-2:      oklch(74%   0.012 50);
+  --color-muted:      oklch(60%   0.012 48);
+  --color-rule:       oklch(30%   0.016 45);
+  --color-rule-2:     oklch(25%   0.014 45);
+  --color-accent:     oklch(70%   0.135 48);
+  --color-accent-ink: oklch(18%   0.020 45);
+  --color-accent-sub: oklch(30%   0.045 48);
+  --color-focus:      oklch(74%   0.17  48);
+  --color-ok:         oklch(72%   0.145 150);
+  --color-ok-sub:     oklch(28%   0.055 150);
+  --color-ok-ink:     oklch(84%   0.10  150);
+  --color-warn:       oklch(76%   0.12  78);
+  --color-warn-sub:   oklch(30%   0.05  78);
+  --color-danger:     oklch(66%   0.16  25);
+  --color-danger-sub: oklch(28%   0.045 25);
+  --shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.24);
+  --shadow-lift:  0 2px 4px oklch(0% 0 0 / 0.34), 0 12px 32px oklch(0% 0 0 / 0.3);
+}

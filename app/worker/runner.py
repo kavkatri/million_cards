@@ -19,8 +19,9 @@ from redis.asyncio import Redis
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.models import Account
+from app.db.models import Account, Run
 from app.db.session import SessionLocal
+from app.events import ProgressEvent, publish
 from app.marketplace.factory import build_adapter
 from app.worker import queue
 from app.worker.handlers import TaskFailure, handle
@@ -52,7 +53,9 @@ class AdapterPool:
         self._adapters.clear()
 
 
-async def _worker_loop(worker_id: str, pool: AdapterPool, stop: asyncio.Event) -> None:
+async def _worker_loop(
+    worker_id: str, pool: AdapterPool, redis: Redis, stop: asyncio.Event
+) -> None:
     while not stop.is_set():
         try:
             async with SessionLocal() as session:
@@ -68,17 +71,44 @@ async def _worker_loop(worker_id: str, pool: AdapterPool, stop: asyncio.Event) -
                     continue
 
                 adapter = await pool.get(account)
+                run = await session.get(Run, task.run_id)
+                line_id = run.line_id if run else None
                 try:
-                    await handle(session, task, adapter)
+                    outcome = await handle(session, task, adapter)
                 except TaskFailure as exc:
                     await session.rollback()
                     await queue.fail(session, task, str(exc), retry_after_s=exc.retry_after_s)
+                    await publish(
+                        redis,
+                        ProgressEvent(
+                            type="task.failed",
+                            line_id=line_id,
+                            run_id=task.run_id,
+                            aspect=task.aspect.value,
+                            detail=str(exc)[:200],
+                        ),
+                    )
                 except Exception as exc:  # noqa: BLE001 - a bad task must not kill the worker
                     await session.rollback()
                     log.exception("task.crashed", task=task.id)
                     await queue.fail(session, task, f"{type(exc).__name__}: {exc}")
                 else:
                     await queue.complete(session, task)
+                    # Announce the success so the dashboard can pulse the exact
+                    # element that changed. Advisory only -- the database
+                    # remains the truth if this never arrives.
+                    await publish(
+                        redis,
+                        ProgressEvent(
+                            type="task.done",
+                            line_id=line_id,
+                            run_id=task.run_id,
+                            aspect=task.aspect.value,
+                            unit=outcome.unit,
+                            count=outcome.count,
+                            label=outcome.label,
+                        ),
+                    )
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 - keep the loop alive through DB blips
@@ -106,7 +136,7 @@ async def main() -> None:
     pid = os.getpid()
     workers = [
         asyncio.create_task(
-            _worker_loop(f"{host}:{pid}:{i}:{uuid.uuid4().hex[:6]}", pool, stop)
+            _worker_loop(f"{host}:{pid}:{i}:{uuid.uuid4().hex[:6]}", pool, redis, stop)
         )
         for i in range(settings.worker_concurrency)
     ]
