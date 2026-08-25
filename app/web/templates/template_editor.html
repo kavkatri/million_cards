@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Шаблоны изображений — million_cards{% endblock %}
+{% block content %}
+<h1>Шаблон изображения</h1>
+<p class="muted">
+  Главное изображение генерируется из подложки и текстовых слоёв. Позиции хранятся
+  в долях холста (0…1), поэтому редактор и сервер совпадают независимо от размера
+  исходника.
+</p>
+
+<div class="editor two-col">
+  <section class="card">
+    <h2>Подложка и слои</h2>
+
+    <label>Название
+      <input id="tpl-name" placeholder="Плёнка 0,3 глянец">
+    </label>
+
+    <label>Подложка (JPG/PNG, минимум 700×900)
+      <input type="file" id="base-upload" accept="image/*">
+    </label>
+
+    <div id="layers"></div>
+    <button type="button" class="secondary" id="add-layer">Добавить текстовый слой</button>
+
+    <label>Дополнительные фото (по порядку)
+      <input type="file" id="extras-upload" accept="image/*" multiple>
+    </label>
+    <ol id="extras" class="extras"></ol>
+
+    <p class="muted">Всего фото на карточку: <strong id="photo-count">1</strong></p>
+
+    <div class="actions">
+      <button type="button" class="primary" id="save-tpl">Сохранить шаблон</button>
+      <span id="tpl-status" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Предпросмотр</h2>
+    <label>Пример значений (JSON)
+      <input id="sample-values" value='{"w": 27, "l": 107}'>
+    </label>
+    <div class="canvas-wrap">
+      <img id="preview-img" alt="предпросмотр">
+      <p class="muted" id="preview-msg">Загрузите подложку, чтобы увидеть результат.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/template_editor.js"></script>
+{% endblock %}

@@ -1,0 +1,78 @@
+name: million-cards
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-million}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-million_cards}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-million}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build: .
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment: &appenv
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-million}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-million_cards}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?set TOKEN_ENCRYPTION_KEY in .env}
+      MEDIA_ROOT: /data/media
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - media:/data/media
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8000"
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker.runner"]
+    environment:
+      <<: *appenv
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-8}
+    volumes:
+      - media:/data/media
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      web: {condition: service_started}
+    # Scale freely: `docker compose up -d --scale worker=4`.
+    # Throughput is bounded by the per-account token buckets in Redis, never by
+    # the number of workers, so adding workers cannot breach a marketplace limit.
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: ["python", "-m", "app.worker.scheduler"]
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

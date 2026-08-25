@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ line.name if line else 'Новая линейка' }} — million_cards{% endblock %}
+{% block content %}
+<h1>{{ line.name if line else 'Новая линейка' }}</h1>
+
+<form id="line-form" class="editor" data-line-id="{{ line.id if line else '' }}">
+  <section class="card">
+    <h2>Основное</h2>
+    <label>Название
+      <input name="name" required value="{{ line.name if line else '' }}">
+    </label>
+    <label>Аккаунт
+      <select name="account_id" id="account-select" required></select>
+    </label>
+    <label>Расписание (cron, UTC)
+      <input name="schedule_cron" placeholder="0 3 * * *"
+             value="{{ line.schedule_cron or '' if line else '' }}">
+      <small class="muted">Пусто — только ручной запуск. Если предыдущий запуск ещё идёт,
+        новый пропускается, а не добавляется поверх.</small>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>Сетка размеров</h2>
+    <p class="muted">Границы включительные: «10 … 120» — это 111 значений.</p>
+    <div id="axes"></div>
+    <button type="button" class="secondary" id="add-axis">Добавить ось</button>
+
+    <label>Шаблон артикула
+      <input name="vendor_code_template" id="vendor-template" required
+             value="{{ line.vendor_code_template if line else '{w} x {l} / прям / глян / 0,3' }}">
+    </label>
+
+    <div class="preview" id="grid-preview">—</div>
+  </section>
+
+  <section class="card">
+    <h2>Цена</h2>
+    <label>Формула
+      <input name="price_expr" id="price-expr"
+             value="{{ line.price_rule.get('expr', 'w * l * ratio') if line else 'w * l * ratio' }}">
+      <small class="muted">Доступны оси сетки и переменные ниже. Разрешена только арифметика:
+        выражение разбирается, а не выполняется.</small>
+    </label>
+    <label>Переменные (JSON)
+      <input name="price_vars" id="price-vars"
+             value='{{ line.price_rule.get("vars", {}) | tojson if line else "{\"ratio\": 0.00010027}" }}'>
+    </label>
+    <div class="row">
+      <label>Мин. цена <input type="number" name="min_price" id="min-price"
+        value="{{ line.price_rule.get('min_price', '') if line else '' }}"></label>
+      <label>Округление <input type="number" name="round_to" id="round-to"
+        value="{{ line.price_rule.get('round_to', 1) if line else 1 }}"></label>
+      <label>Скидка % <input type="number" name="discount" id="discount"
+        value="{{ line.price_rule.get('discount', 0) if line else 0 }}"></label>
+    </div>
+    <div class="preview" id="price-preview">—</div>
+  </section>
+
+  <section class="card">
+    <h2>Карточка товара</h2>
+    <label>Шаблон (JSON: subjectID, brand, title, description, characteristics…)
+      <textarea name="card_template" id="card-template" rows="10">{{ line.card_template | tojson(indent=2) if line else '{\n  "subjectID": 231,\n  "brand": "",\n  "title": "{w} x {l}",\n  "description": ""\n}' }}</textarea>
+      <small class="muted">Значения осей подставляются: <code>{w}</code>, <code>{l}</code>.</small>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>Изображения и остатки</h2>
+    <label>Шаблон изображения
+      <select name="image_template_id" id="template-select"></select>
+    </label>
+    <div class="row">
+      <label>Остаток <input type="number" name="stock_value" id="stock-value"
+        value="{{ line.stock_rule.get('value', 1000) if line else 1000 }}"></label>
+      <label>ID склада <input type="number" name="warehouse_id" id="warehouse-id"
+        value="{{ line.stock_rule.get('warehouse_id', '') if line else '' }}"></label>
+    </div>
+    <fieldset>
+      <legend>Активные этапы</legend>
+      {% set active = line.enabled_aspects if line else ['card','media','price','stock'] %}
+      {% for a, label in [('card','Карточки'), ('media','Фото'), ('price','Цены'), ('stock','Остатки')] %}
+        <label class="inline"><input type="checkbox" name="aspect" value="{{ a }}"
+          {{ 'checked' if a in active else '' }}> {{ label }}</label>
+      {% endfor %}
+    </fieldset>
+  </section>
+
+  <div class="actions sticky">
+    <span id="save-status" class="muted"></span>
+    <button type="submit" class="primary">Сохранить</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.LINE = {{ (line and {
+    'id': line.id, 'account_id': line.account_id,
+    'grid_spec': line.grid_spec, 'image_template_id': line.image_template_id
+  }) | tojson or 'null' }};
+</script>
+<script src="/static/line_editor.js"></script>
+{% endblock %}

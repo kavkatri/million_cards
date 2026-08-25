@@ -1,0 +1,10 @@
+# Normalise to LF in the repository. The images build on Linux, so a CRLF
+# checkout on Windows must not leak into the container.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.otf binary

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}million_cards{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  {% if request.state.user_email is defined %}
+  <header class="topbar">
+    <a class="brand" href="/">million_cards</a>
+    <nav>
+      <a href="/">Обзор</a>
+      <a href="/lines">Новая линейка</a>
+      <a href="/templates/editor">Шаблоны изображений</a>
+    </nav>
+    <form method="post" action="/logout" class="right">
+      <span class="muted">{{ request.state.user_email }}</span>
+      <button class="link" type="submit">Выйти</button>
+    </form>
+  </header>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

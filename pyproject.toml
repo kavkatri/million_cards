@@ -1,0 +1,54 @@
+[project]
+name = "million-cards"
+version = "0.1.0"
+description = "Marketplace catalogue reconciliation for generated product grids"
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "redis>=5.2",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "httpx>=0.28",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.19",
+    "pillow>=11.0",
+    "cryptography>=44.0",
+    "structlog>=24.4",
+    "itsdangerous>=2.2",
+    "argon2-cffi>=23.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    # `Depends(...)` in a default argument is FastAPI's documented pattern, not
+    # the mutable-default bug B008 exists to catch.
+    "B008",
+    # `class X(str, Enum)` is kept over StrEnum: SQLAlchemy's Enum column is
+    # configured against these types and swapping the base changes how values
+    # round-trip. Not worth the churn for a style preference.
+    "UP042",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]

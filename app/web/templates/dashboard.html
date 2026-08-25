@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Обзор — million_cards{% endblock %}
+{% block content %}
+<h1>Линейки товаров</h1>
+
+{% if not cards %}
+  <div class="card empty">
+    <p>Пока нет ни одной линейки.</p>
+    <a class="primary button" href="/lines">Создать линейку</a>
+  </div>
+{% endif %}
+
+<div class="grid">
+{% for c in cards %}
+  <section class="card line-card">
+    <header>
+      <h2><a href="/lines/{{ c.line.id }}">{{ c.line.name }}</a></h2>
+      <span class="badge {{ 'on' if c.line.enabled else 'off' }}">
+        {{ 'включена' if c.line.enabled else 'выключена' }}
+      </span>
+    </header>
+    <p class="muted">
+      {{ c.account.name if c.account else '—' }}
+      {% if c.account and c.account.sandbox %}<span class="badge sandbox">песочница</span>{% endif %}
+      {% if c.line.schedule_cron %}· <code>{{ c.line.schedule_cron }}</code>{% endif %}
+    </p>
+
+    <div class="meter">
+      <div class="meter-label">
+        <span>Карточки</span>
+        <span>{{ c.created }} / {{ c.total }}</span>
+      </div>
+      <div class="bar"><div class="fill" style="width: {{ (100 * c.created / c.total) if c.total else 0 }}%"></div></div>
+    </div>
+
+    {% if c.photos_target %}
+    <div class="meter">
+      <div class="meter-label">
+        <span>Фотографии</span>
+        <span>{{ c.photos }} / {{ c.photos_target }}</span>
+      </div>
+      <div class="bar"><div class="fill alt" style="width: {{ (100 * c.photos / c.photos_target) if c.photos_target else 0 }}%"></div></div>
+    </div>
+    {% endif %}
+
+    <footer class="actions">
+      <button class="secondary" data-run="{{ c.line.id }}" data-dry="1">Предпросмотр</button>
+      <button class="primary" data-run="{{ c.line.id }}">Запустить</button>
+    </footer>
+    <pre class="plan" id="plan-{{ c.line.id }}" hidden></pre>
+  </section>
+{% endfor %}
+</div>
+
+<h2>Последние запуски</h2>
+<table class="runs">
+  <thead>
+    <tr><th>#</th><th>Линейка</th><th>Статус</th><th>Начат</th><th>Итог</th></tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.line_id }}</td>
+      <td><span class="state {{ r.state.value }}">{{ r.state.value }}</span>
+          {% if r.dry_run %}<span class="badge">предпросмотр</span>{% endif %}</td>
+      <td class="muted">{{ r.started_at.strftime('%Y-%m-%d %H:%M') if r.started_at else '—' }}</td>
+      <td class="muted">{{ r.message or '' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">Запусков ещё не было.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
