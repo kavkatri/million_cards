@@ -14,11 +14,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes import router as api_router
+from app.bootstrap import bootstrap_admin
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.security import (
     SESSION_COOKIE,
     SESSION_MAX_AGE,
+    hash_password,
     issue_session,
     read_session,
     verify_password,
@@ -41,6 +43,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
     Path(settings.media_root).mkdir(parents=True, exist_ok=True)
+    # Runs after `alembic upgrade head`, which the web command executes first.
+    # A bootstrap failure must not stop the app from serving -- otherwise a
+    # typo'd env var takes the whole service down.
+    try:
+        await bootstrap_admin()
+    except Exception:  # noqa: BLE001
+        log.exception("bootstrap.failed")
     log.info("web.started")
     yield
     await app.state.redis.aclose()
@@ -144,6 +153,54 @@ async def login(
         samesite="lax",
     )
     return response
+
+
+@app.get("/password", response_class=HTMLResponse)
+async def password_form(request: Request):
+    return templates.TemplateResponse(request, "password.html", {"message": None, "ok": False})
+
+
+@app.post("/password", response_class=HTMLResponse)
+async def change_password(
+    request: Request,
+    current: str = Form(...),
+    new: str = Form(...),
+    confirm: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Change your own password.
+
+    Exists so a first-run account created from BOOTSTRAP_ADMIN_PASSWORD does not
+    have to keep a password that is sitting in the platform's environment
+    settings for anyone with dashboard access to read.
+    """
+    user = (
+        await session.execute(select(User).where(User.email == request.state.user_email))
+    ).scalar_one()
+
+    def fail(msg: str):
+        return templates.TemplateResponse(
+            request, "password.html", {"message": msg, "ok": False}, status_code=400
+        )
+
+    if not verify_password(user.password_hash, current):
+        return fail("Текущий пароль неверен.")
+    if new != confirm:
+        return fail("Новый пароль и подтверждение не совпадают.")
+    if len(new) < 10:
+        return fail("Пароль должен быть не короче 10 символов.")
+    if new == current:
+        return fail("Новый пароль совпадает со старым.")
+
+    user.password_hash = hash_password(new)
+    await session.commit()
+    log.info("password.changed", email=user.email)
+    return templates.TemplateResponse(
+        request,
+        "password.html",
+        {"message": "Пароль изменён. Теперь можно удалить BOOTSTRAP_ADMIN_PASSWORD "
+                    "из переменных окружения.", "ok": True},
+    )
 
 
 @app.post("/logout")

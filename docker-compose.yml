@@ -47,6 +47,10 @@ services:
       TOKEN_ENCRYPTION_KEY: '${TOKEN_ENCRYPTION_KEY:?required - see DEPLOY.md for how to generate it}'
       MEDIA_ROOT: /data/media
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # First-run login, for platforms with no shell into the container. Used
+      # only while the user table is empty; ignored on every boot after that.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
     volumes:
       - media:/data/media
     # Reachable as `web:8000` from anything on this compose network, which is

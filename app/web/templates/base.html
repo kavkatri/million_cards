@@ -25,7 +25,9 @@
         <span class="live-dot" id="live-dot" data-live="false" aria-hidden="true"></span>
         <span id="live-label">подключение…</span>
       </span>
-      <span class="muted">{{ request.state.user_email }}</span>
+      <a href="/password" class="muted" {% if page == 'password' %}aria-current="page"{% endif %}>
+        {{ request.state.user_email }}
+      </a>
       <form method="post" action="/logout">
         <button type="submit" class="quiet" style="padding-inline:0">Выйти</button>
       </form>

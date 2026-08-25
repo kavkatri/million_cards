@@ -118,6 +118,28 @@ equivalents are in the README.
 uvicorn, so a fresh deploy migrates itself. If the web container restarts in a
 loop, read its logs first — that command is where a database problem surfaces.
 
+**4. Creating the first login without a shell.** `python -m app.cli create-user`
+assumes you can exec into the container, and many platforms do not offer that.
+Set two more environment variables instead:
+
+```
+BOOTSTRAP_ADMIN_EMAIL=you@example.com
+BOOTSTRAP_ADMIN_PASSWORD=<at least 10 characters>
+```
+
+On the next start the web process creates that account — **only while the user
+table is empty**. Once any user exists it is ignored on every boot, so it cannot
+overwrite an account or reset a password, and it is safe to leave configured.
+Watch for this line in the logs:
+
+```json
+{"event": "bootstrap.admin_created", "email": "you@example.com", ...}
+```
+
+Then sign in, change the password at **/password**, and delete
+`BOOTSTRAP_ADMIN_PASSWORD` from the platform — otherwise your admin password
+sits in the dashboard for anyone with access to read.
+
 ## Before it faces the internet
 
 - TLS in front; the compose port is bound to `127.0.0.1` on purpose. See the

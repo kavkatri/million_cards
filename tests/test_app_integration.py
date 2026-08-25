@@ -234,3 +234,103 @@ class TestCredentials:
 
     def test_dashboard_shows_the_new_line(self, client):
         assert "Плёнка 0,3" in client.get("/").text
+
+
+class TestBootstrap:
+    """First-run admin creation, for platforms with no container shell."""
+
+    def test_does_nothing_without_env_vars(self, client):
+        from app.bootstrap import bootstrap_admin
+
+        asyncio.run(bootstrap_admin())  # must not raise, must not create anything
+
+    def test_never_overwrites_an_existing_user(self, client, monkeypatch):
+        """The guard that makes this safe to leave configured: it cannot reset
+        a password or claim an account once one exists."""
+        from app.core.config import get_settings
+
+        s = get_settings()
+        monkeypatch.setattr(s, "bootstrap_admin_email", "intruder@example.com")
+        monkeypatch.setattr(s, "bootstrap_admin_password", "a-long-enough-password")
+
+        from app.bootstrap import bootstrap_admin
+
+        asyncio.run(bootstrap_admin())
+
+        # The pre-existing tester account still owns the instance.
+        r = client.post(
+            "/login",
+            data={"email": "intruder@example.com", "password": "a-long-enough-password"},
+            follow_redirects=False,
+        )
+        assert r.status_code == 401
+
+    def test_refuses_a_weak_password(self, client, monkeypatch):
+        from app.core.config import get_settings
+
+        s = get_settings()
+        monkeypatch.setattr(s, "bootstrap_admin_email", "weak@example.com")
+        monkeypatch.setattr(s, "bootstrap_admin_password", "short")
+
+        from app.bootstrap import bootstrap_admin
+
+        asyncio.run(bootstrap_admin())  # logs and returns, never creates
+
+
+class TestPasswordChange:
+    """Runs last: it changes the shared client's password."""
+
+    def test_wrong_current_password_is_rejected(self, client):
+        r = client.post(
+            "/password",
+            data={
+                "current": "nope",
+                "new": "a-brand-new-password",
+                "confirm": "a-brand-new-password",
+            },
+        )
+        assert r.status_code == 400
+
+    def test_mismatched_confirmation_is_rejected(self, client):
+        r = client.post(
+            "/password",
+            data={
+                "current": "correct-horse-battery",
+                "new": "a-brand-new-password",
+                "confirm": "a-different-password",
+            },
+        )
+        assert r.status_code == 400
+
+    def test_too_short_is_rejected(self, client):
+        r = client.post(
+            "/password",
+            data={"current": "correct-horse-battery", "new": "short", "confirm": "short"},
+        )
+        assert r.status_code == 400
+
+    def test_change_succeeds_and_the_new_password_works(self, client):
+        r = client.post(
+            "/password",
+            data={
+                "current": "correct-horse-battery",
+                "new": "a-brand-new-password",
+                "confirm": "a-brand-new-password",
+            },
+        )
+        assert r.status_code == 200
+
+        client.cookies.clear()
+        old = client.post(
+            "/login",
+            data={"email": "tester@example.com", "password": "correct-horse-battery"},
+            follow_redirects=False,
+        )
+        assert old.status_code == 401, "the old password must stop working"
+
+        new = client.post(
+            "/login",
+            data={"email": "tester@example.com", "password": "a-brand-new-password"},
+            follow_redirects=False,
+        )
+        assert new.status_code == 302

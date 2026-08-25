@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     media_root: Path = Path("./media")
     log_level: str = "INFO"
 
+    # First-run admin, for platforms that offer no shell into the container.
+    # Applied only when no user exists; ignored on every boot after that.
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
+
     # How many tasks one worker process runs concurrently. Safe to raise: the
     # per-account token buckets, not this number, bound the marketplace request
     # rate. Raise it to keep more in flight while workers wait on tokens.
