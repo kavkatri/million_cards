@@ -55,6 +55,10 @@ services:
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-8}
     volumes:
       - media:/data/media
+    # The image's HEALTHCHECK probes /healthz, which only the web service
+    # serves. Left enabled, every worker would report unhealthy forever.
+    healthcheck:
+      disable: true
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -68,6 +72,8 @@ services:
     build: .
     command: ["python", "-m", "app.worker.scheduler"]
     environment: *appenv
+    healthcheck:
+      disable: true
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}

@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import bindparam, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,21 +97,28 @@ async def sync_catalogue(
     seen = 0
     batch: list[dict] = []
 
+    # One executemany per batch rather than one round trip per card. A line is
+    # 41k cards; at one statement each a sync spent most of its time waiting on
+    # the network instead of on the marketplace.
+    stmt = (
+        update(Sku)
+        .where(
+            Sku.line_id == bindparam("b_line"),
+            Sku.vendor_code == bindparam("b_vendor_code"),
+        )
+        .values(
+            nm_id=bindparam("b_nm_id"),
+            imt_id=bindparam("b_imt_id"),
+            chrt_id=bindparam("b_chrt_id"),
+            photo_count=bindparam("b_photo_count"),
+            last_synced_at=bindparam("b_last_synced_at"),
+        )
+    )
+
     async def flush() -> None:
         if not batch:
             return
-        for row in batch:
-            await session.execute(
-                update(Sku)
-                .where(Sku.line_id == line.id, Sku.vendor_code == row["vendor_code"])
-                .values(
-                    nm_id=row["nm_id"],
-                    imt_id=row["imt_id"],
-                    chrt_id=row["chrt_id"],
-                    photo_count=row["photo_count"],
-                    last_synced_at=now,
-                )
-            )
+        await session.execute(stmt, batch)
         await session.commit()
         batch.clear()
 
@@ -119,11 +126,13 @@ async def sync_catalogue(
     async for card in adapter.fetch_cards(vendor_code_filter=suffix):
         batch.append(
             {
-                "vendor_code": card.vendor_code,
-                "nm_id": card.nm_id,
-                "imt_id": card.imt_id,
-                "chrt_id": card.chrt_id,
-                "photo_count": card.photo_count,
+                "b_line": line.id,
+                "b_vendor_code": card.vendor_code,
+                "b_nm_id": card.nm_id,
+                "b_imt_id": card.imt_id,
+                "b_chrt_id": card.chrt_id,
+                "b_photo_count": card.photo_count,
+                "b_last_synced_at": now,
             }
         )
         seen += 1

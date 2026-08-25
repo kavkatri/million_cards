@@ -32,11 +32,6 @@ class Settings(BaseSettings):
     # card was created less than this long ago.
     card_sync_grace_seconds: int = 1800
 
-    @property
-    def sync_database_url(self) -> str:
-        """Alembic runs sync; strip the asyncpg driver."""
-        return self.database_url.replace("+asyncpg", "")
-
 
 @lru_cache
 def get_settings() -> Settings:

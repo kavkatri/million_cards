@@ -11,6 +11,7 @@ a form: "10 to 120" should mean 111 values, not 110.
 from __future__ import annotations
 
 import itertools
+import string
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,6 +62,30 @@ def axis_names(spec: dict) -> list[str]:
     return [a["name"] for a in spec.get("axes", []) if a.get("name")]
 
 
+def template_fields(template: str) -> set[str]:
+    """Field names a format string actually substitutes."""
+    return {
+        field for _, field, _, _ in string.Formatter().parse(template) if field
+    }
+
+
+def _check_template_covers_axes(names: list[str], template: str) -> None:
+    """A template that omits an axis produces duplicate vendor codes.
+
+    Caught statically rather than by expanding: the builder validates on every
+    keystroke, and a 41k-cell expansion per keystroke is not a live check. More
+    importantly, a template missing an axis was previously reported as *valid*
+    here -- the sample code rendered fine -- and only failed much later, at the
+    unique constraint, after the line had been saved.
+    """
+    missing = [n for n in names if n not in template_fields(template)]
+    if missing:
+        raise GridSpecError(
+            f"vendor code template does not use {', '.join(missing)}, so cells "
+            "would collapse onto duplicate codes. Include every axis in the template."
+        )
+
+
 def grid_size(spec: dict) -> int:
     """Cell count without materialising anything."""
     axes = spec.get("axes") or []
@@ -85,6 +110,7 @@ def expand(spec: dict, vendor_code_template: str) -> list[DesiredSku]:
         )
 
     names = [a["name"] for a in axes]
+    _check_template_covers_axes(names, vendor_code_template)
     value_lists = [_axis_values(a) for a in axes]
 
     out: list[DesiredSku] = []
@@ -114,6 +140,7 @@ def validate(spec: dict, vendor_code_template: str) -> dict:
     """Check a spec without expanding it. Used by the builder UI for live feedback."""
     size = grid_size(spec)
     names = axis_names(spec)
+    _check_template_covers_axes(names, vendor_code_template)
     sample_axes = {}
     for axis in spec.get("axes", []):
         sample_axes[axis["name"]] = _axis_values(axis)[0]

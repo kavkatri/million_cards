@@ -14,21 +14,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libwebp7 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir \
-        "fastapi>=0.115" "uvicorn[standard]>=0.32" \
-        "sqlalchemy[asyncio]>=2.0.36" "asyncpg>=0.30" "alembic>=1.14" \
-        "redis>=5.2" "pydantic>=2.10" "pydantic-settings>=2.6" \
-        "httpx>=0.28" "jinja2>=3.1" "python-multipart>=0.0.19" \
-        "pillow>=11.0" "cryptography>=44.0" "structlog>=24.4" \
-        "itsdangerous>=2.2" "argon2-cffi>=23.1"
+COPY pyproject.toml README.md ./
+COPY app ./app
+
+# Installed from pyproject so the dependency list has exactly one home. The
+# earlier version restated every package here, which meant two lists to keep in
+# step and a silent drift the moment one was edited.
+RUN pip install --no-cache-dir .
 
 COPY alembic.ini ./
 COPY alembic ./alembic
-COPY app ./app
 
 RUN mkdir -p /data/media
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else sys.exit(1)"
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

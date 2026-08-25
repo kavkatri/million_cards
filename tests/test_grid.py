@@ -39,8 +39,34 @@ def test_template_omitting_an_axis_is_rejected():
 
 
 def test_template_referencing_unknown_axis_is_rejected():
+    # Covers both real axes, so only the unknown name can be the complaint.
     with pytest.raises(GridSpecError, match="not an axis"):
-        validate(FILM_GRID, "{w} x {depth}")
+        validate(FILM_GRID, "{w} x {l} x {depth}")
+
+
+def test_validate_rejects_a_template_that_omits_an_axis():
+    """The builder validates on every keystroke and must not call this valid.
+
+    Before this check, a template missing an axis rendered a fine-looking sample
+    code and passed. The line saved, and only much later did every cell collapse
+    onto one vendor code.
+    """
+    with pytest.raises(GridSpecError, match="does not use l"):
+        validate(FILM_GRID, "{w} / плёнка")
+
+
+def test_omission_is_caught_statically_not_by_expanding():
+    """A 41k-cell expansion per keystroke is not a live check."""
+    huge = {
+        "axes": [
+            {"name": "a", "type": "range", "start": 1, "stop": 100_000},
+            {"name": "b", "type": "range", "start": 1, "stop": 100_000},
+        ]
+    }
+    # Guard would reject this on size if it tried to expand; it must fail on the
+    # template instead, and instantly.
+    with pytest.raises(GridSpecError, match="does not use"):
+        validate(huge, "{a}")
 
 
 def test_list_axis():
