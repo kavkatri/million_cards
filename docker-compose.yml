@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-million}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:?required - set in .env locally or in your platform environment settings}'
       POSTGRES_DB: ${POSTGRES_DB:-million_cards}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -32,16 +32,26 @@ services:
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment: &appenv
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-million}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-million_cards}
+      # Guarded here too, not just on `db`. Left unguarded, an unset password
+      # interpolated to a blank string and the app failed later with an
+      # authentication error rather than here with a useful one.
+      DATABASE_URL: 'postgresql+asyncpg://${POSTGRES_USER:-million}:${POSTGRES_PASSWORD:?required - set in .env locally or in your platform environment settings}@db:5432/${POSTGRES_DB:-million_cards}'
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?set TOKEN_ENCRYPTION_KEY in .env}
+      SECRET_KEY: '${SECRET_KEY:?required - see DEPLOY.md for how to generate it}'
+      TOKEN_ENCRYPTION_KEY: '${TOKEN_ENCRYPTION_KEY:?required - see DEPLOY.md for how to generate it}'
       MEDIA_ROOT: /data/media
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - media:/data/media
+    # Reachable as `web:8000` from anything on this compose network, which is
+    # how a platform's reverse proxy will find it.
+    expose:
+      - "8000"
+    # Published on the host for local use. A managed platform routes over the
+    # network instead, so set WEB_BIND=0.0.0.0 only if you really want the port
+    # on the host, or delete this block and let the platform handle ingress.
     ports:
-      - "127.0.0.1:${WEB_PORT:-8080}:8000"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8000"
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}

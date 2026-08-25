@@ -77,6 +77,47 @@ curl -fsS http://127.0.0.1:8080/healthz
    stock — point a line at a production account. Start with an aspect subset if
    you want to be careful: enable `card` only, confirm, then add the rest.
 
+## Deploying on a managed platform
+
+Coolify, Dokploy, Portainer and friends build this compose file directly. Three
+things differ from a local run.
+
+**1. The three required variables must be set in the platform's environment
+settings, not a `.env` file.** Compose refuses to interpolate without them and
+the deploy fails before a container starts:
+
+```
+error while interpolating services.web.environment.SECRET_KEY:
+required variable SECRET_KEY is missing a value
+```
+
+That is the guard working. Generate the values and paste them in:
+
+| Variable | Generate with |
+|---|---|
+| `POSTGRES_PASSWORD` | `python -c "import secrets; print(secrets.token_urlsafe(24))"` |
+| `SECRET_KEY` | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `TOKEN_ENCRYPTION_KEY` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+
+`TOKEN_ENCRYPTION_KEY` must be **backed up with the database**. It is a Fernet
+key (44 characters, base64, ends in `=`); changing it makes every stored
+marketplace token unreadable.
+
+**2. Ingress.** The platform's proxy usually joins the compose network and
+reaches the service as `web:8000` — that is what `expose` is for. The `ports`
+block publishes to the host as well, bound to `127.0.0.1` by default so the
+service is never directly on the internet. If your platform needs a published
+port, set `WEB_BIND=0.0.0.0`; otherwise leave it alone or remove the block.
+
+**3. SSE needs an unbuffered proxy.** Whatever sits in front must not buffer
+`/events/stream` and must allow a long-lived connection, or live progress will
+appear frozen. Most platforms let you set per-service proxy options; the nginx
+equivalents are in the README.
+
+**Migrations run on start.** The web service runs `alembic upgrade head` before
+uvicorn, so a fresh deploy migrates itself. If the web container restarts in a
+loop, read its logs first — that command is where a database problem surfaces.
+
 ## Before it faces the internet
 
 - TLS in front; the compose port is bound to `127.0.0.1` on purpose. See the
