@@ -10,10 +10,16 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-million}"]
-      interval: 5s
+      # -d matters. Without it Postgres defaults the database name to the user
+      # name, so the probe opened a database called "million" that does not
+      # exist and logged FATAL every interval. pg_isready still reported the
+      # server as up -- it had answered, after all -- so the check passed while
+      # filling the log with errors that looked like a broken deployment.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-million} -d ${POSTGRES_DB:-million_cards}"]
+      interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   redis:
