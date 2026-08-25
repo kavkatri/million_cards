@@ -39,7 +39,15 @@
   </main>
 </div>
 {% else %}
-  {% block gate %}{% endblock %}
+  {#
+    Pages that define only `content` (every page except the login and password
+    gates) would otherwise render an empty <body> when there is no session --
+    a blank white screen, which is the least diagnosable failure there is.
+    Falling through to the content block means a missing session shows a page.
+  #}
+  {% block gate %}
+    <main class="workspace">{{ self.content() }}</main>
+  {% endblock %}
 {% endif %}
 
 <script src="/static/app.js"></script>
