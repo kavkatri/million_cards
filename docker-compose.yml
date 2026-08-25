@@ -59,15 +59,20 @@ services:
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
     volumes:
       - media:/data/media
-    # Reachable as `web:8000` from anything on this compose network, which is
-    # how a platform's reverse proxy will find it.
+    # Reachable as `web:8000` from anything on this compose network.
     expose:
       - "8000"
-    # Published on the host for local use. A managed platform routes over the
-    # network instead, so set WEB_BIND=0.0.0.0 only if you really want the port
-    # on the host, or delete this block and let the platform handle ingress.
+    # Published on all interfaces by default, because a managed platform's
+    # router generally is not on the container host's loopback -- bound to
+    # 127.0.0.1 the port answered nobody and the site was blank with no request
+    # ever reaching uvicorn.
+    #
+    # This does mean the port is open on the host, so the platform's firewall is
+    # what keeps it off the public internet. Every path requires a session, but
+    # that is defence in depth, not a substitute. For a plain local run, or a
+    # host you manage yourself with its own TLS proxy, set WEB_BIND=127.0.0.1.
     ports:
-      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8000"
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:8000"
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}

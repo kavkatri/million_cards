@@ -103,11 +103,31 @@ That is the guard working. Generate the values and paste them in:
 key (44 characters, base64, ends in `=`); changing it makes every stored
 marketplace token unreadable.
 
-**2. Ingress.** The platform's proxy usually joins the compose network and
-reaches the service as `web:8000` — that is what `expose` is for. The `ports`
-block publishes to the host as well, bound to `127.0.0.1` by default so the
-service is never directly on the internet. If your platform needs a published
-port, set `WEB_BIND=0.0.0.0`; otherwise leave it alone or remove the block.
+**2. Ingress — the setting that produces a blank page when it is wrong.**
+
+The container listens on **8000** (`EXPOSE 8000`), and compose publishes it on
+the host as **8080**. Point the platform's router at whichever it asks for.
+
+The published port binds to `0.0.0.0` by default. It used to bind to
+`127.0.0.1`, which is safer but only works when the router runs on the container
+host's own loopback — on a platform whose router sits elsewhere the port
+answered nobody, the site was blank, and **no request ever appeared in the
+uvicorn log**. That log is the diagnostic: uvicorn prints every request it
+receives, so if loading the page adds no line, nothing is reaching the app and
+the problem is routing, not the application.
+
+Set `WEB_BIND=127.0.0.1` for a local run or a host where you terminate TLS
+yourself. On a managed platform, leave it and let the platform's firewall keep
+port 8080 off the public internet.
+
+**2b. Health-check path — set it to `/healthz`.**
+
+Platforms default to probing `/`. That returns **302** here, redirecting to the
+login page, and a router that expects 200 can treat the app as unhealthy and
+refuse to route to it — which also shows up as a blank page.
+
+`/healthz` is public, unauthenticated, and returns `200 {"ok": true}`. On
+Timeweb App Platform this is «путь проверки состояния» in the app settings.
 
 **3. SSE needs an unbuffered proxy.** Whatever sits in front must not buffer
 `/events/stream` and must allow a long-lived connection, or live progress will
